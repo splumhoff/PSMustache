@@ -14,6 +14,8 @@ jobs:
     runs-on: ${{ matrix.platform }}
     steps:
     - uses: actions/checkout@v2
+      with:
+        submodules: true
     - name: Run Pester tests (PS Core)
       run: |
         Write-host $PSVersionTable.PSVersion.Major $PSVersionTable.PSRemotingProtocolVersion.Minor
@@ -26,6 +28,8 @@ jobs:
     runs-on: windows-latest
     steps:
     - uses: actions/checkout@v2
+      with:
+        submodules: true
     - name: Run Pester tests (Windows PowerShell)
       run: |
         Write-host $PSVersionTable.PSVersion.Major $PSVersionTable.PSRemotingProtocolVersion.Minor
