@@ -1,0 +1,34 @@
+# From https://www.robstr.dev/using-github-actions-run-automatic-pester-tests/
+# Thanks alot!
+name: Pester
+on:
+  pull_request:
+    branches: [ main ]
+jobs:
+  test-pwsh:
+    strategy:
+      matrix:
+        platform: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.platform }}
+    steps:
+    - uses: actions/checkout@v2
+    - name: Run Pester tests (PS Core)
+      run: |
+        Write-host $PSVersionTable.PSVersion.Major $PSVersionTable.PSRemotingProtocolVersion.Minor
+        Set-PSRepository psgallery -InstallationPolicy trusted
+        Install-Module -Name Pester -MinimumVersion 5.1 -confirm:$false -Force
+        Invoke-Pester -Path "."
+      shell: pwsh
+  
+  test-posh:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Run Pester tests (Windows PowerShell)
+      run: |
+        Write-host $PSVersionTable.PSVersion.Major $PSVersionTable.PSRemotingProtocolVersion.Minor
+        Set-PSRepository psgallery -InstallationPolicy trusted
+        Install-Module -Name Pester -MinimumVersion 5.1 -Confirm:$false -Force
+        Invoke-Pester -Path "."
+        if ($Error[0].Fullyqualifiederrorid -eq 'PesterAssertionFailed') {exit 1}
+      shell: powershell
