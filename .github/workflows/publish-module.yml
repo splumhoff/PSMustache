@@ -1,5 +1,6 @@
 name: PSGallery
 on:
+  workflow_dispatch:
   release:
     types: [published]
 jobs:
@@ -12,13 +13,13 @@ jobs:
       - name: Publishing
         run: |
           # Temp. Output Path
-          $outputPath = Join-Path $PSScriptRoot 'output/PSMustache'
+          $outputPath = 'output/PSMustache'
           # Generate Pathes
           $publishFiles =  @(
               'PSMustache.psd1',
               'PSMustache.psm1',
               'LICENSE'
-          ) | ForEach-Object { Join-Path $PSScriptRoot $_ }
+          ) | ForEach-Object { Join-Path ${{ github.workspace }} $_ }
 
           # Clear output Directory
           Remove-Item -Force -Recurse $outputPath -ErrorAction SilentlyContinue
