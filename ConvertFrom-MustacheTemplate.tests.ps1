@@ -1,5 +1,5 @@
 BeforeAll {
-    . $PSScriptRoot/ConvertFrom-MustacheTemplate.ps1
+    Import-Module .\PSMustache.psd1
 
     # Tests are written for en-US-Formatting.
     $oldCulture = [cultureinfo]::CurrentCulture
@@ -18,9 +18,27 @@ Describe "Mustache Tests from GIT " {
         @{Name = "Delimiters";      FileName = Join-Path $PSScriptRoot '.\spec\specs\delimiters.json'}
     )
 
-    Context "<Name>" -Foreach $areas {
+    Context "<Name> (as PSObject)" -Foreach $areas {
         $tests = @()
         foreach ($curTest in (Get-Content $_.FileName | ConvertFrom-Json).tests) {
+            $tests += @{
+                Name        = $curTest.name;
+                Template    = $curTest.template;
+                Expected    = $curTest.expected;
+                Values      = $curTest.data;
+                Partials    = $curTest.partials;
+            }
+        }
+        It -Name "Test: <name>" -TestCases $tests {
+            $template = $_.template
+            $expected = $_.expected
+            ConvertFrom-MustacheTemplate -template $template -Values $_.Values -Partials $_.Partials | Should -Be $expected
+        }
+    }
+
+    Context "<Name> (as HashTable)" -Foreach $areas {
+        $tests = @()
+        foreach ($curTest in (Get-Content $_.FileName | ConvertFrom-Json -AsHashtable).tests) {
             $tests += @{
                 Name        = $curTest.name;
                 Template    = $curTest.template;
@@ -38,6 +56,7 @@ Describe "Mustache Tests from GIT " {
 }
 
 AfterAll {
+    Remove-Module PSMustache
     # Revert after Tests
     [cultureinfo]::CurrentCulture = $oldCulture
     [cultureinfo]::CurrentUICulture = $oldUICulture

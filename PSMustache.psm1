@@ -1,4 +1,4 @@
-#Requires -Version 5
+#Requires -Version 5.1
 enum MustacheTagType {
     Root
     Text
@@ -43,7 +43,7 @@ class PSMustache {
             Interpolation {
                 $retValue = [PSMustache]::GetValue($Leaf.Content, $ValueStack)
                 if (-not $Leaf.Unescape) {
-                    $retValue = [System.Web.HttpUtility]::HtmlEncode($retValue)
+                    $retValue = [System.Net.WebUtility]::HtmlEncode($retValue)
                 }
                 break
             }
@@ -146,7 +146,9 @@ class PSMustache {
             $curValueNamePart = $valueName.Split('.')
             # Lookup if first part of the name in in the current Stack position
             # If it matches, return the value down the dots, otherwise go stack up
-            if (($curValue | Get-Member -MemberType NoteProperty | Where-Object Name -eq $curValueNamePart[0]).count -eq 1) {
+            if (
+                (($curValue -is [hashtable]) -and ($curValueNamePart[0] -in $curValue.Keys)) -or 
+                (($curValue | Get-Member -MemberType NoteProperty | Where-Object Name -eq $curValueNamePart[0]).count -eq 1)) {
                 $curValueNamePart | ForEach-Object { $curValue = $curValue.$_ }
                 return $curValue
             }
@@ -418,8 +420,48 @@ Values should be defined as hashtables and can include nested elements e.g.
 Partials should be defined as hashtable, e.g. @{'myPartial' = 'Hi {{name}}'}
 
 .EXAMPLE
-An example
+PS> # Very Basic Interpolation:
+PS> ConvertFrom-MustacheTemplate -Template 'Hi {{Name}}!' -Values @{Name='Joe'}
+Hi Joe!
+.EXAMPLE
+PS> # Define Sections Template:
+PS> $template = @'
+>> My Repos:
+>> {{#repos}}
+>>  * {{.}}
+>> {{/repos}}
+>> '@
 
+PS> # Define Values: 
+PS> $values = @{Repos = @('PSMustache', 'AnotherRepo', 'Third Repo')}
+
+PS> # Invoke with values
+PS> ConvertFrom-MustacheTemplate -Template $template -Values $values
+My Repos:
+ * PSMustache
+ * AnotherRepo
+ * Third Repo
+
+PS> # Invoke without values
+PS> ConvertFrom-MustacheTemplate -Template $template
+My Repos:
+.EXAMPLE
+PS> # Define Sections with second inverted Section.
+PS> # The inverted section is only evaluated when repos is empty or not found
+PS> $template = @'
+>> My Repos:
+>> {{#repos}}
+>>  * {{.}}
+>> {{/repos}}
+>> {{^repos}}
+>>  - No Repos. :-(
+>> {{/repos}}
+>> '@
+
+# Invoke without values
+PS> ConvertFrom-MustacheTemplate -Template $template -
+My Repos:
+ - No Repos. :-(
 #>
 function ConvertFrom-MustacheTemplate {
     [CmdletBinding()]
