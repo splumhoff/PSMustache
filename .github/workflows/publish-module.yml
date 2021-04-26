@@ -1,0 +1,37 @@
+name: PSGallery
+on:
+  release:
+    types: [published]
+jobs:
+  psgallery_publish:
+    runs-on: windows-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+        
+      - name: Publishing
+        run: |
+          # Temp. Output Path
+          $outputPath = Join-Path $PSScriptRoot 'output/PSMustache'
+          # Generate Pathes
+          $publishFiles =  @(
+              'PSMustache.psd1',
+              'PSMustache.psm1',
+              'LICENSE'
+          ) | ForEach-Object { Join-Path $PSScriptRoot $_ }
+
+          # Clear output Directory
+          Remove-Item -Force -Recurse $outputPath -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory $outputPath -Force | Out-Null
+
+          foreach ($file in $publishFiles) {
+              if (-not (Test-Path $file)) {
+                  Write-Error ('File {0} not found' -f $file)
+                  exit 1;
+              }
+              Copy-Item $file -Destination $outputPath
+          }
+
+          # Publish to PowerShellGallery
+          Publish-Module -Path $outputPath -NuGetApiKey ${{ secrets.PSGALLERY }} -Verbose
+        shell: powershell
