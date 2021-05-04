@@ -1,6 +1,7 @@
 # PSMustache
 
 PSMustache is an implementation of the [Mustache](https://mustache.github.io/) template system purely in PowerShell without any external dependencies. It requires at least PowerShell 5.1 and runs great in later Versions.
+PSMustache currently passes all Spec-Tests up to the current [Mustache-Spec-Release 1.2.1.](https://github.com/mustache/spec), except the optional Lambda- and Parent-Tags.
 
 In Reference to [mustache.js](https://github.com/janl/mustache.js):
 
@@ -13,12 +14,12 @@ For a list of implementations and tips, see http://mustache.github.io/.
 ## Installation
 
 The prefered way is to install the latest published version for PowershellGallary via
-~~~ps
+~~~PowerShell
 Install-Module -Name PSMustache
 ~~~
 
 Alternatively you can just clone this repo or download a release and import the Module via
-~~~ps
+~~~PowerShell
 Import-Module .\PSMustache.psd1
 ~~~
 
@@ -34,14 +35,14 @@ For a complete language-agnostic overview you can also refer to [mustache(5)](ht
 
 ### Interpolation
 ```{{Variable}}``` Interpolation with simple variables. 
-~~~ps
+~~~PowerShell
 PS> ConvertFrom-MustacheTemplate -Template 'Hi {{Name}}!' -Values @{Name='Joe'}
 
 Hi Joe
 ~~~
 
 Interpolation with nested hashtables
-~~~ps
+~~~PowerShell
 PS> $values = @{
     person = @{
         name = 'Joe'
@@ -59,7 +60,7 @@ Hi Joe from Germany!
 When you want to output something when an element is NOT found or is empty, you can use inverted sections. ```{{^SectionName}}``` which must also be closed with a closing Tag ```{{/SectionName}}```
 
 
-~~~ps
+~~~PowerShell
 PS> $values = @{
     persons = @(
         @{
@@ -98,8 +99,9 @@ Known Repo List
 ### Comments
 ```{{! This is a comment}}``` Comment-Tags are just completely removed from the template. When they are the only content in a line, the whole line is removed
 
-~~~ps
+~~~PowerShell
 PS> ConvertFrom-MustacheTemplate -Template 'Hi {{Name}}{{! This is a comment}}! ' -Values @{Name='Joe'}
 
 Hi Joe
 ~~~
+
