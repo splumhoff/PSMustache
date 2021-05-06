@@ -16,6 +16,51 @@ class MustacheTag {
     [string]$Content = ''
     [array]$Childs = @()
     [bool]$Unescape = $false
+
+    [int]$TagStartPos
+    [int]$TagEndPos
+
+    [string]$DelimiterLeft = [PSMustache]::DelimiterLeftDefault
+    [string]$DelimiterRight = [PSMustache]::DelimiterRightDefault
+
+    [string] GetOuterContent() {
+        if ($this.Type -eq [MustacheTagType]::Root) {
+            return $this.Content
+        }
+        else {
+            # Find Root-Node
+            $rootParent = $this.Parent
+            while (($null -ne $rootParent.Parent) -and ($rootParent.Type -ne [MustacheTagType]::Root)) {
+                $rootParent = $rootParent.Parent
+            }
+            # Select Last ChildNode and Outer Content including Closing Tag in Sections/Inverted Sections
+            if ($this.Type -in [MustacheTagType]::SectionStart,[MustacheTagType]::InvertedStart) {
+                return $rootParent.Content.Substring($this.TagStartPos, ($this.Childs[$this.Childs.Length-1].TagEndPos) - $this.TagStartPos)
+            } else {
+                # Get Outer Content of regular Nodes
+                return $rootParent.Content.Substring($this.TagStartPos, $this.TagEndPos - $this.TagStartPos)
+            }
+        }
+    }
+    [string] GetInnerContent() {
+        if ($this.Type -notin [MustacheTagType]::SectionStart,[MustacheTagType]::InvertedStart) {
+            return $this.Content
+        }
+        else {
+            # No childs, no inner content...
+            if ($this.Childs.Length -le 1) {
+                return [string]::Empty
+            }
+
+            # Find Root-Node
+            $rootParent = $this.Parent
+            while (($null -ne $rootParent.Parent) -and ($rootParent.Type -ne [MustacheTagType]::Root)) {
+                $rootParent = $rootParent.Parent
+            }
+            # Select Content from beginning of first Child until end of last content tag (very last is Section End)
+            return $rootParent.Content.Substring($this.Childs[0].TagStartPos, $this.Childs[$this.Childs.Length - 1].TagStartPos - $this.Childs[0].TagStartPos)
+        }
+    }
 }
 
 class PSMustache {
@@ -41,25 +86,35 @@ class PSMustache {
                 break
             }
             Interpolation {
-                $retValue = [PSMustache]::GetValue($Leaf.Content, $ValueStack)
+                $retValue = [PSMustache]::GetValue($Leaf, $ValueStack)
                 if (-not $Leaf.Unescape) {
                     $retValue = [System.Net.WebUtility]::HtmlEncode($retValue)
                 }
                 break
             }
             SectionStart {
-                $sectionValue = [PSMustache]::GetValue($Leaf.Content, $ValueStack)
+                $sectionValue = [PSMustache]::GetValue($Leaf, $ValueStack)
                 
-                if ($sectionValue -is [string]) {   # When string, check if the string is not empty, otherwise it is equal to false
+                if ($sectionValue -is [MustacheTag]) {
+                    $retValue += [PSMustache]::RenderTemplate($sectionValue, $valueStack, $null)
+                    break
+                }
+
+                if ($sectionValue -is [string]) {
+                    # When string, check if the string is not empty, otherwise it is equal to false
                     if (-not [string]::IsNullOrEmpty($sectionValue)) {
                         $sectionValue = @($sectionValue)
-                    } else {
+                    }
+                    else {
                         $sectionValue = @()
                     }
-                } elseif ($sectionValue -is [bool]) {   # When bool, check if it is true
+                }
+                elseif ($sectionValue -is [bool]) {
+                    # When bool, check if it is true
                     if ($sectionValue) {
                         $sectionValue = @($sectionValue)
-                    } else {
+                    }
+                    else {
                         $sectionValue = @()
                     }
                 }
@@ -67,7 +122,8 @@ class PSMustache {
                 if (-not ($sectionValue -is [array])) {
                     if ($null -ne $sectionValue) {
                         $sectionValue = @($sectionValue)
-                    } else {
+                    }
+                    else {
                         $sectionValue = @()
                     }
                 }
@@ -75,66 +131,80 @@ class PSMustache {
                 foreach ($curVar in $sectionValue) {
                     # Attach each Child of the section template to the result set for each variable in the stack
                     foreach ($curChild in $Leaf.Childs) {
-                        if ($curVar -is [array]) {  # Nested Arrays need to join as such
+                        if ($curVar -is [array]) {
+                            # Nested Arrays need to join as such
                             $retValue += [PSMustache]::RenderTemplate($curChild, @($curVar, $ValueStack), $partials)
-                        } else {
+                        }
+                        else {
                             $retValue += [PSMustache]::RenderTemplate($curChild, @($curVar) + $ValueStack, $partials)
                         } 
                     }
                 }
-
-                
+                break                
             }
             InvertedStart {
-                $sectionValue = [PSMustache]::GetValue($Leaf.Content, $ValueStack)
-                if ($sectionValue -is [string]) {   # When string, check if the string is not empty, otherwise it is equal to false
+                $sectionValue = [PSMustache]::GetValue($Leaf, $ValueStack)
+                if ($sectionValue -is [string]) {
+                    # When string, check if the string is not empty, otherwise it is equal to false
                     $outputInverted = [string]::IsNullOrEmpty($sectionValue)
-                } elseif ($sectionValue -is [bool]) {   # When bool, check if it is true
+                }
+                elseif ($sectionValue -is [bool]) {
+                    # When bool, check if it is true
                     $outputInverted = -not $sectionValue
-                } elseif ($sectionValue -is [array]) {
+                }
+                elseif ($sectionValue -is [array]) {
                     $outputInverted = $sectionValue.Length -eq 0
-                } else {
+                }
+                else {
                     $outputInverted = $null -eq $sectionValue
                 }
                 if ($outputInverted) {
                     foreach ($curChild in $Leaf.Childs) {
-                        if ($sectionValue -is [array]) {  # Nested Arrays need to join as such
+                        if ($sectionValue -is [array]) {
+                            # Nested Arrays need to join as such
                             $retValue += [PSMustache]::RenderTemplate($curChild, @($sectionValue, $ValueStack), $partials)
-                        } else {
+                        }
+                        else {
                             $retValue += [PSMustache]::RenderTemplate($curChild, @($sectionValue) + $ValueStack, $partials)
                         } 
                     }
                 }
-
+                break
             }
             Partial {
                 $partial = $partials.($Leaf.Content.Trim())
                 if (-not [string]::IsNullOrEmpty($partial)) {
-                    if ($leaf.Childs.Length -gt 0) {    # Append intentation to every newline except the last one when ending with a newline
-                        $partial = $partial -replace "(\n)(?!$)","`n$($leaf.Childs[0].Content)"
+                    if ($leaf.Childs.Length -gt 0) {
+                        # Append intentation to every newline except the last one when ending with a newline
+                        $partial = $partial -replace "(\n)(?!$)", "`n$($leaf.Childs[0].Content)"
                     }
                     $tags = [PSMustache]::ParseTemplate($partial)
                     # Check if intendation Text Tag is appended
-                    if ($leaf.Childs.Length -gt 0) {    # Prepend Intentation bevore the first element to preserve it
+                    if ($leaf.Childs.Length -gt 0) {
+                        # Prepend Intentation bevore the first element to preserve it
                         $tags.Childs = @($leaf.Childs[0]) + $tags.Childs
                     }
                     $retValue += [PSMustache]::RenderTemplate($tags, $ValueStack, $partials)
                 }
+                break
             }
             Root {
                 foreach ($curChild in $Leaf.Childs) {
                     $retValue += [PSMustache]::RenderTemplate($curChild, $ValueStack, $partials)
                 }
+                break
             }
             Default {}
         }
         return $retValue
     }
 
-    static [object] GetValue([string] $valueName, [array]$valueStack) {
-        $valueName = $valueName.Trim()  # Remove Whitespaces from variable name
+    static [object] GetValue([MustacheTag]$currentTag, [array]$valueStack) {
 
-        if ($valueName -eq '.') {   # Return directly if dotted names
+        $valueName = $currentTag.Content.Trim()  # Remove Whitespaces from variable name
+
+        if ($valueName -eq '.') {
+            # Return directly if dotted names
             if ($valueStack.Count -gt 1) {
                 return $valueStack[0]
             }
@@ -146,11 +216,29 @@ class PSMustache {
             $curValueNamePart = $valueName.Split('.')
             # Lookup if first part of the name in in the current Stack position
             # If it matches, return the value down the dots, otherwise go stack up
-            if (
-                (($curValue -is [hashtable]) -and ($curValueNamePart[0] -in $curValue.Keys)) -or 
-                (($curValue | Get-Member -MemberType NoteProperty | Where-Object Name -eq $curValueNamePart[0]).count -eq 1)) {
+            if ((($curValue -is [hashtable]) -and ($curValueNamePart[0] -in $curValue.Keys)) -or (($curValue | Get-Member -MemberType NoteProperty | Where-Object Name -eq $curValueNamePart[0]).count -eq 1)) {
                 $curValueNamePart | ForEach-Object { $curValue = $curValue.$_ }
-                return $curValue
+                if ($curValue -is [scriptblock]) {
+                    # ScriptBlock / Lambda-Expression
+                    try {
+                        $functionValue =''
+                        if ($currentTag.Type -eq [MustacheTagType]::SectionStart) {
+                            # Sections are returned as Tags as they replace the original Childs in the node
+                            $functionValue = $curValue.Invoke($currentTag.GetInnerContent())
+                            return [PSMustache]::ParseTemplate($functionValue, $currentTag.DelimiterLeft, $currentTag.DelimiterRight)
+                        } else {
+                            $functionValue = $curValue.Invoke()
+                            $template = [PSMustache]::ParseTemplate($functionValue)
+                            return [PSMustache]::RenderTemplate($template, $valueStack, $null)
+                        }
+                    }
+                    catch {
+                        return "ERROR";
+                    }
+                }
+                else {
+                    return $curValue
+                }
             }
         }
         return $null
@@ -167,12 +255,28 @@ class PSMustache {
         # Go with defaults
         return [PSMustache]::ParseTemplate($template, [PSMustache]::DelimiterLeftDefault, [PSMustache]::DelimiterRightDefault, [PSMustache]::DelimiterLeftUnescapeDefault, [PSMustache]::DelimiterRightUnescapeDefault, $templateNewLine)
     }
+    static [MustacheTag] ParseTemplate([string]$template, [string]$delimiterLeft, [string]$delimiterRight) {
+        # Evaluate newLine
+        if ($Template -match "(?<newLine>\r?\n)") {
+            $templateNewLine = $Matches['newLine']
+        }
+        else {
+            $templateNewLine = $null
+        }
+        # Go with defaults
+        return [PSMustache]::ParseTemplate($template, $delimiterLeft, $delimiterRight, [PSMustache]::DelimiterLeftUnescapeDefault, [PSMustache]::DelimiterRightUnescapeDefault, $templateNewLine)
+    }
     static [MustacheTag] ParseTemplate([string]$template, [string]$delimiterLeft, [string]$delimiterRight, [string]$delimiterLeftUnescape, [string]$delimiterRightUnescape, [string]$templateNewLine) {
         $parseTree = [MustacheTag]@{
-            Type = [MustacheTagType]::Root
+            Type        = [MustacheTagType]::Root
+            Content     = $Template
+            TagStartPos = 0
+            TagEndPos   = $Template.Length
+            DelimiterLeft = $delimiterLeft
+            DelimiterRight = $delimiterRight
         }
 
-        $curParent = $parseTree
+        $rootParent = $parseTree
 
         $lastPosition = 0
         $openTagPosition = -1
@@ -200,17 +304,25 @@ class PSMustache {
 
                 # Text-Content before Tag, if any
                 if ($openTagPosition - $lastPosition -gt 0) {
-                    $curParent.Childs += [MustacheTag]@{
-                        Parent  = $curParent
-                        Type    = [MustacheTagType]::Text
-                        Content = $Template.Substring($lastPosition, $openTagPosition - $lastPosition)
+                    $rootParent.Childs += [MustacheTag]@{
+                        Parent      = $rootParent
+                        Type        = [MustacheTagType]::Text
+                        Content     = $Template.Substring($lastPosition, $openTagPosition - $lastPosition)
+                        TagStartPos = $lastPosition
+                        TagEndPos   = $openTagPosition
+                        DelimiterLeft = $delimiterLeft
+                        DelimiterRight = $delimiterRight
                     }
                 }
-                $curParent.Childs += [MustacheTag]@{
-                    Parent   = $curParent
-                    Type     = [MustacheTagType]::Interpolation
-                    Content  = $tagContentMatch['TagContent']
-                    Unescape = ($isUnescapeByTriple -or ($tagContentMatch['Operator'] -eq '&'))
+                $rootParent.Childs += [MustacheTag]@{
+                    Parent      = $rootParent
+                    Type        = [MustacheTagType]::Interpolation
+                    Content     = $tagContentMatch['TagContent']
+                    Unescape    = ($isUnescapeByTriple -or ($tagContentMatch['Operator'] -eq '&'))
+                    TagStartPos = $openTagPosition
+                    TagEndPos   = $closeTagPosition + $delimiterRight.Length - 1
+                    DelimiterLeft = $delimiterLeft
+                    DelimiterRight = $delimiterRight
                 }
                 # Set Position after closing Tag
                 $lastPosition = $closeTagPosition + $delimiterRight.Length
@@ -260,10 +372,14 @@ class PSMustache {
                     # Join previous and trailing content in line to check if it constists only out of whitespaces
                     $isWhiteSpaceLine = ($previousContentInLine + $nextContentInLine) -match "^\s*$"
                     if ($isWhiteSpaceLine) {
-                        $curParent.Childs += [MustacheTag]@{
-                            Parent  = $curParent
-                            Type    = [MustacheTagType]::Text
-                            Content = $Template.Substring($lastPosition, $posPreviousContentInLineBegin - $lastPosition)
+                        $rootParent.Childs += [MustacheTag]@{
+                            Parent      = $rootParent
+                            Type        = [MustacheTagType]::Text
+                            Content     = $Template.Substring($lastPosition, $posPreviousContentInLineBegin - $lastPosition)
+                            TagStartPos = $lastPosition
+                            TagEndPos   = $posPreviousContentInLineBegin
+                            DelimiterLeft = $delimiterLeft
+                            DelimiterRight = $delimiterRight
                         }
                         if ($posNextLineBreakContentBegin -eq -1) {
                             # Last line is a whitespace line, set lastPos to end of Template
@@ -283,10 +399,14 @@ class PSMustache {
                 if (-not $isWhiteSpaceLine) {
                     # No whitespace-Line, add content until opening tag and set lastpos after closing Tag
                     if ($openTagPosition - $lastPosition -gt 0) {
-                        $curParent.Childs += [MustacheTag]@{
-                            Parent  = $curParent
-                            Type    = [MustacheTagType]::Text
-                            Content = $Template.Substring($lastPosition, $openTagPosition - $lastPosition)
+                        $rootParent.Childs += [MustacheTag]@{
+                            Parent      = $rootParent
+                            Type        = [MustacheTagType]::Text
+                            Content     = $Template.Substring($lastPosition, $openTagPosition - $lastPosition)
+                            TagStartPos = $lastPosition
+                            TagEndPos   = $openTagPosition
+                            DelimiterLeft = $delimiterLeft
+                            DelimiterRight = $delimiterRight
                         }
                     }
                     # Set Position after closing Tag
@@ -296,52 +416,72 @@ class PSMustache {
                 switch ($tagContentMatch['Operator']) {
                     '!' {
                         # Comment
-                        $curParent.Childs += [MustacheTag]@{
-                            Parent  = $curParent
-                            Type    = [MustacheTagType]::Comment
-                            Content = $tagContent
+                        $rootParent.Childs += [MustacheTag]@{
+                            Parent      = $rootParent
+                            Type        = [MustacheTagType]::Comment
+                            Content     = $tagContent
+                            TagStartPos = $openTagPosition
+                            TagEndPos   = $closeTagPosition + $delimiterRight.Length
+                            DelimiterLeft = $delimiterLeft
+                            DelimiterRight = $delimiterRight
                         }
                         break
                     }
                     '#' {
                         # Section start
-                        $curParent.Childs += [MustacheTag]@{
-                            Parent  = $curParent
-                            Type    = [MustacheTagType]::SectionStart
-                            Content = $tagContentMatch['TagContent']
+                        $rootParent.Childs += [MustacheTag]@{
+                            Parent      = $rootParent
+                            Type        = [MustacheTagType]::SectionStart
+                            Content     = $tagContentMatch['TagContent']
+                            TagStartPos = $openTagPosition
+                            TagEndPos   = $closeTagPosition + $delimiterRight.Length
+                            DelimiterLeft = $delimiterLeft
+                            DelimiterRight = $delimiterRight
                         }
                         # Set new Parent
-                        $curParent = $curParent.Childs[$curParent.Childs.Length - 1]
+                        $rootParent = $rootParent.Childs[$rootParent.Childs.Length - 1]
                         break
                     }
                     '^' {
                         # Inverted start
-                        $curParent.Childs += [MustacheTag]@{
-                            Parent  = $curParent
-                            Type    = [MustacheTagType]::InvertedStart
-                            Content = $tagContentMatch['TagContent']
+                        $rootParent.Childs += [MustacheTag]@{
+                            Parent      = $rootParent
+                            Type        = [MustacheTagType]::InvertedStart
+                            Content     = $tagContentMatch['TagContent']
+                            TagStartPos = $openTagPosition
+                            TagEndPos   = $closeTagPosition + $delimiterRight.Length
+                            DelimiterLeft = $delimiterLeft
+                            DelimiterRight = $delimiterRight
                         }
                         # Set new Parent
-                        $curParent = $curParent.Childs[$curParent.Childs.Length - 1]
+                        $rootParent = $rootParent.Childs[$rootParent.Childs.Length - 1]
                         break
                     }
                     '/' {
                         # Section or inverted end
-                        $curParent.Childs += [MustacheTag]@{
-                            Parent  = $curParent
-                            Type    = [MustacheTagType]::SectionEnd
-                            Content = $tagContentMatch['TagContent']
+                        $rootParent.Childs += [MustacheTag]@{
+                            Parent      = $rootParent
+                            Type        = [MustacheTagType]::SectionEnd
+                            Content     = $tagContentMatch['TagContent']
+                            TagStartPos = $openTagPosition
+                            TagEndPos   = $closeTagPosition + $delimiterRight.Length
+                            DelimiterLeft = $delimiterLeft
+                            DelimiterRight = $delimiterRight
                         }
                         # Revert Parent
-                        $curParent = $curParent.Parent
+                        $rootParent = $rootParent.Parent
                         break
                     }
                     '>' {
                         # Partials
                         $newPartial = [MustacheTag]@{
-                            Parent  = $curParent
-                            Type    = [MustacheTagType]::Partial
-                            Content = $tagContentMatch['TagContent']
+                            Parent      = $rootParent
+                            Type        = [MustacheTagType]::Partial
+                            Content     = $tagContentMatch['TagContent']
+                            TagStartPos = $openTagPosition
+                            TagEndPos   = $closeTagPosition + $delimiterRight.Length
+                            DelimiterLeft = $delimiterLeft
+                            DelimiterRight = $delimiterRight
                         }
                         if ($isWhiteSpaceLine -and $previousContentInLine -match "(\s+)") { 
                             # Check if we have intended before the partial tag
@@ -351,19 +491,24 @@ class PSMustache {
                                 Content = $previousContentInLine
                             }
                         }
-                        $curParent.Childs += $newPartial
+                        $rootParent.Childs += $newPartial
                         break
                     }
                     '=' {
                         # Delimiters
                         if ($tagContentMatch['TagContent'] -match "^(?<delLeft>\S+)\s+(?<delRight>\S+)\s*=$") {
+                            $rootParent.Childs += [MustacheTag]@{
+                                Parent      = $rootParent
+                                Type        = [MustacheTagType]::Delimiter
+                                Content     = $tagContentMatch['TagContent']
+                                TagStartPos = $openTagPosition
+                                TagEndPos   = $closeTagPosition + $delimiterRight.Length
+                                DelimiterLeft = $delimiterLeft
+                                DelimiterRight = $delimiterRight
+                            }
                             $delimiterLeft = $Matches['delLeft']
                             $delimiterRight = $Matches['delRight']
-                            $curParent.Childs += [MustacheTag]@{
-                                Parent  = $curParent
-                                Type    = [MustacheTagType]::Delimiter
-                                Content = $tagContentMatch['TagContent']
-                            }
+
                         }
                     }
                 }
@@ -371,10 +516,14 @@ class PSMustache {
         }
         # Add trailing text
         if ($lastPosition -lt $template.Length) {
-            $curParent.Childs += [MustacheTag]@{
-                Parent  = $curParent
-                Type    = [MustacheTagType]::Text
-                Content = $Template.Substring($lastPosition)
+            $rootParent.Childs += [MustacheTag]@{
+                Parent      = $rootParent
+                Type        = [MustacheTagType]::Text
+                Content     = $Template.Substring($lastPosition)
+                TagStartPos = $lastPosition
+                TagEndPos   = $template.Length
+                DelimiterLeft = $delimiterLeft
+                DelimiterRight = $delimiterRight
             }
         }
         return $parseTree
@@ -478,6 +627,6 @@ function ConvertFrom-MustacheTemplate {
     )
     process {
         $parseTree = [PSMustache]::ParseTemplate($Template)
-       return [PSMustache]::RenderTemplate($parseTree, $Values, $Partials)
+        return [PSMustache]::RenderTemplate($parseTree, $Values, $Partials)
     }
 }

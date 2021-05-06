@@ -16,11 +16,15 @@ Describe "Mustache Tests from GIT " {
         @{Name = "Inverted";        FileName = Join-Path $PSScriptRoot '.\spec\specs\inverted.json'}
         @{Name = "Partials";        FileName = Join-Path $PSScriptRoot '.\spec\specs\partials.json'}
         @{Name = "Delimiters";      FileName = Join-Path $PSScriptRoot '.\spec\specs\delimiters.json'}
+        @{Name = "Lambdas";         FileName = Join-Path $PSScriptRoot '.\spec\specs\~lambdas.json'}
     )
 
     Context "<Name> (as PSObject)" -Foreach $areas {
         $tests = @()
         foreach ($curTest in (Get-Content $_.FileName | ConvertFrom-Json).tests) {
+            if ($null -ne $curTest.data.lambda) {
+                $curTest.data.lambda = [scriptblock]::Create($curTest.data.lambda.pwsh)
+            }
             $tests += @{
                 Name        = $curTest.name;
                 Template    = $curTest.template;
@@ -36,21 +40,26 @@ Describe "Mustache Tests from GIT " {
         }
     }
 
-    Context "<Name> (as HashTable)" -Foreach $areas {
-        $tests = @()
-        foreach ($curTest in (Get-Content $_.FileName | ConvertFrom-Json -AsHashtable).tests) {
-            $tests += @{
-                Name        = $curTest.name;
-                Template    = $curTest.template;
-                Expected    = $curTest.expected;
-                Values      = $curTest.data;
-                Partials    = $curTest.partials;
+    if ($PSEdition -eq "Core") {
+        Context "<Name> (as HashTable)" -Foreach $areas {
+            $tests = @()
+            foreach ($curTest in (Get-Content $_.FileName | ConvertFrom-Json -AsHashtable).tests) {
+                if ($null -ne $curTest.data.lambda) {
+                    $curTest.data.lambda = [scriptblock]::Create($curTest.data.lambda.pwsh)
+                }
+                $tests += @{
+                    Name        = $curTest.name;
+                    Template    = $curTest.template;
+                    Expected    = $curTest.expected;
+                    Values      = $curTest.data;
+                    Partials    = $curTest.partials;
+                }
             }
-        }
-        It -Name "Test: <name>" -TestCases $tests {
-            $template = $_.template
-            $expected = $_.expected
-            ConvertFrom-MustacheTemplate -template $template -Values $_.Values -Partials $_.Partials | Should -Be $expected
+            It -Name "Test: <name>" -TestCases $tests {
+                $template = $_.template
+                $expected = $_.expected
+                ConvertFrom-MustacheTemplate -template $template -Values $_.Values -Partials $_.Partials | Should -Be $expected
+            }
         }
     }
 }
