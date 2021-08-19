@@ -555,7 +555,7 @@ Details of the processing:
   e.g. {{=[[ ]]=}} changes the delimiters to [[content]] and [[[rawContent]]] for unescaped Content
 
 .PARAMETER Template
-A Mustache Template as string
+A Mustache Template as string or a already processed template from Get-MustacheTemplate
 
 .PARAMETER Values
 All values which shall be used while rendering the template.
@@ -616,17 +616,53 @@ function ConvertFrom-MustacheTemplate {
     [CmdletBinding()]
     [OutputType([string])]
     param (
-        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
-        [string]
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNull()]
+        [ValidateScript({($_ -is [string]) -or ($_ -is [MustacheTag])})]
         $Template,
-        [Parameter(Mandatory = $false)]
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
         $Values,
         [Parameter(Mandatory = $false)]
         [array]
         $Partials        
     )
+    begin {
+        if ($Template -is [MustacheTag]) {
+            $parseTree = $Template
+        } else {
+            $parseTree = Get-MustacheTemplate -Template $Template
+        }
+    }
     process {
-        $parseTree = [PSMustache]::ParseTemplate($Template)
+
         return [PSMustache]::RenderTemplate($parseTree, $Values, $Partials)
+    }
+}
+<#
+.SYNOPSIS
+Parses a Template and returns the Template Object
+
+.DESCRIPTION
+Parses a Template to use it multiple times with ConvertFrom-MustacheTemplate.
+Most processing time is used to parse the template, to it makes sense when the template is used multiple times.
+
+.PARAMETER Template
+A Mustache Template as string
+
+.EXAMPLE
+$template = Get-MustacheTemplate $myTemplate
+$valueCollecton | ConvertFrom-MustacheTemplate -Template $template
+
+#>
+function Get-MustacheTemplate {
+    [CmdletBinding()]
+    [OutputType([MustacheTag])]
+    param (
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
+        [string]
+        $Template
+    )
+    process {
+        return [PSMustache]::ParseTemplate($Template)
     }
 }
