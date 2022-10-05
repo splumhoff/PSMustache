@@ -1,0 +1,64 @@
+{
+    "overview": "Tests when delimiter are set outside of the template",
+    "tests": [
+        {
+            "name": "Simple substituion test",
+            "desc": "Template must be left untouched if delimiters are changed.",
+            "data": {
+                "name": "Joe"
+            },
+            "template": "Hi [[ name ]]",
+            "expected": "Hi Joe",
+            "delimiterLeft": "[[",
+            "delimiterRight": "]]"
+        },
+        {
+            "name": "Simple substituion test II",
+            "desc": "Template must be left untouched if delimiters are changed.",
+            "data": {
+                "name": "Joe"
+            },
+            "template": "Hi {{ name }}",
+            "expected": "Hi {{ name }}",
+            "delimiterLeft": "[[",
+            "delimiterRight": "]]"
+        },
+        {
+            "name": "Parent contexts with [[ and ]] as delimiters",
+            "desc": "Names missing in the current context are looked up in the stack.",
+            "data": {
+                "a": "foo",
+                "b": "wrong",
+                "sec": {
+                "b": "bar"
+                },
+                "c": {
+                "d": "baz"
+                }
+            },
+            "template": "\"[[#sec]][[a]], [[b]], [[c.d]][[/sec]]\"",
+            "expected": "\"foo, bar, baz\"",
+            "delimiterLeft": "[[",
+            "delimiterRight": "]]"
+        },
+        {
+            "name": "Parent contexts with [[ and ]] as delimiters and inline delimiter change",
+            "desc": "Names missing in the current context are looked up in the stack.",
+            "data": {
+                "a": "foo",
+                "b": "wrong",
+                "sec": {
+                "b": "bar"
+                },
+                "c": {
+                "d": "baz"
+                }
+            },
+            "template": "\"[[#sec]][[a]], [[={{ }}=]]{{b}}{{=[[ ]]=}}, [[c.d]][[/sec]]\"",
+            "expected": "\"foo, bar, baz\"",
+            "delimiterLeft": "[[",
+            "delimiterRight": "]]"
+        }
+
+    ]
+}

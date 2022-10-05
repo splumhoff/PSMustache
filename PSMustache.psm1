@@ -568,6 +568,14 @@ Values should be defined as hashtables and can include nested elements e.g.
 .PARAMETER Partials
 Partials should be defined as hashtable, e.g. @{'myPartial' = 'Hi {{name}}'}
 
+.PARAMETER DelimiterLeft
+Custom Start-Delimiter which shall be used for processing
+When DelimiterLeft is defined, DelimiterRight is also mandatory!
+
+.PARAMETER DelimiterRight
+Custom End-Delimiter which shall be used for processing
+When DelimiterRight is defined, DelimiterLeft is also mandatory!
+
 .EXAMPLE
 PS> # Very Basic Interpolation:
 PS> ConvertFrom-MustacheTemplate -Template 'Hi {{Name}}!' -Values @{Name='Joe'}
@@ -613,24 +621,38 @@ My Repos:
  - No Repos. :-(
 #>
 function ConvertFrom-MustacheTemplate {
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParameterSetName = 'Default')]
     [OutputType([string])]
     param (
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory = $true, ParameterSetName = 'Default')]
+        [Parameter(Mandatory = $true, ParameterSetName = 'Delimiter')]
         [ValidateNotNull()]
         [ValidateScript({($_ -is [string]) -or ($_ -is [MustacheTag])})]
         $Template,
-        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
+        [Parameter(Mandatory = $true, ParameterSetName = 'Default', ValueFromPipeline = $true)]
+        [Parameter(Mandatory = $true, ParameterSetName = 'Delimiter', ValueFromPipeline = $true)]
         $Values,
-        [Parameter(Mandatory = $false)]
+        [Parameter(Mandatory = $false, ParameterSetName = 'Default')]
+        [Parameter(Mandatory = $false, ParameterSetName = 'Delimiter')]
         [array]
-        $Partials        
+        $Partials,
+
+        [Parameter(Mandatory = $true, ParameterSetName = 'Delimiter')]
+        [string]
+        $DelimiterLeft,
+        [Parameter(Mandatory = $true, ParameterSetName = 'Delimiter')]
+        [string]
+        $DelimiterRight
     )
     begin {
         if ($Template -is [MustacheTag]) {
             $parseTree = $Template
         } else {
-            $parseTree = Get-MustacheTemplate -Template $Template
+            if ($PsCmdlet.ParameterSetName -eq 'Delimiter') {
+                $parseTree = Get-MustacheTemplate -Template $Template -DelimiterLeft $DelimiterLeft -DelimiterRight $DelimiterRight
+            } else {
+                $parseTree = Get-MustacheTemplate -Template $Template
+            }
         }
     }
     process {
@@ -649,20 +671,40 @@ Most processing time is used to parse the template, to it makes sense when the t
 .PARAMETER Template
 A Mustache Template as string
 
+.PARAMETER DelimiterLeft
+Custom Start-Delimiter which shall be used for processing
+When DelimiterLeft is defined, DelimiterRight is also mandatory!
+
+.PARAMETER DelimiterRight
+Custom End-Delimiter which shall be used for processing
+When DelimiterRight is defined, DelimiterLeft is also mandatory!
+
 .EXAMPLE
 $template = Get-MustacheTemplate $myTemplate
 $valueCollecton | ConvertFrom-MustacheTemplate -Template $template
 
 #>
 function Get-MustacheTemplate {
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParameterSetName = 'Default')]
     [OutputType([MustacheTag])]
     param (
-        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
+        [Parameter(Mandatory = $true, ParameterSetName = 'Default', ValueFromPipeline = $true)]
+        [Parameter(Mandatory = $true, ParameterSetName = 'Delimiter', ValueFromPipeline = $true)]
         [string]
-        $Template
+        $Template,
+
+        [Parameter(Mandatory = $true, ParameterSetName = 'Delimiter')]
+        [string]
+        $DelimiterLeft,
+        [Parameter(Mandatory = $true, ParameterSetName = 'Delimiter')]
+        [string]
+        $DelimiterRight
     )
     process {
-        return [PSMustache]::ParseTemplate($Template)
+        if ($PsCmdlet.ParameterSetName -eq 'Delimiter') {
+            return [PSMustache]::ParseTemplate($Template, $DelimiterLeft, $DelimiterRight)
+        } else {
+            return [PSMustache]::ParseTemplate($Template)
+        }
     }
 }

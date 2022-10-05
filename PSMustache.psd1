@@ -8,7 +8,7 @@
 RootModule = 'PSMustache.psm1'
 
 # Version number of this module.
-ModuleVersion = '1.3.1'
+ModuleVersion = '1.3.2'
 
 # Supported PSEditions
 CompatiblePSEditions = @('Desktop','Core')
@@ -20,7 +20,7 @@ GUID = '3abbeb5e-4f15-4096-804c-838473285516'
 Author = 'Sascha Plumhoff'
 
 # Copyright statement for this module
-Copyright = '2021 Sascha Plumhoff'
+Copyright = '2022 Sascha Plumhoff'
 
 # Description of the functionality provided by this module
 Description = 'PSMustache is an implementation of the Mustache template system purely in PowerShell without any external dependencies.'

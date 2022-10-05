@@ -1,7 +1,7 @@
 # PSMustache
 
 PSMustache is an implementation of the [Mustache](https://mustache.github.io/) template system purely in PowerShell without any external dependencies. It requires at least PowerShell 5.1 and runs great in later Versions.
-PSMustache currently passes all Spec-Tests up to the current [Mustache-Spec-Release 1.2.1.](https://github.com/mustache/spec), except the Parent-Tags.
+PSMustache currently passes all Spec-Tests up to the current [Mustache-Spec-Release](https://github.com/mustache/spec), except the Parent-Tags.
 
 In Reference to [mustache.js](https://github.com/janl/mustache.js):
 
@@ -28,7 +28,11 @@ Import-Module .\PSMustache.psd1
 PSMustache has only one single but very powerfull CMDlet ```ConvertFrom-MustacheTemplate``` with the following parameters:
 * ```-Template``` takes the Mustache-Template as a string. In more complex scenarios you'll usually get the template from e.g. a file
 * ```-Values``` are the data as a hashtable or PSCustomObject. You can have as many nested levels as needed.
-* ```-Partials``` You can think of partials as named subtemplates or includes. 
+
+Optional Parameters:
+* ```-Partials``` kind of named subtemplates or includes. 
+* ```-DelimiterLeft``` sets a different opening delimiter when {{ is already used
+* ```-DelimiterRight``` sets a different closing delimiter when }} is already used
 
 For a complete language-agnostic overview you can also refer to [mustache(5)](http://mustache.github.io/mustache.5.html)
 
@@ -38,7 +42,14 @@ For a complete language-agnostic overview you can also refer to [mustache(5)](ht
 ~~~PowerShell
 PS> ConvertFrom-MustacheTemplate -Template 'Hi {{Name}}!' -Values @{Name='Joe'}
 
-Hi Joe
+Hi Joe!
+~~~
+
+```{{Variable}}``` Interpolation with different delimiters. 
+~~~PowerShell
+PS> ConvertFrom-MustacheTemplate -Template 'Hi [[Name]], {{keepThisUntouched}}!' -Values @{Name='Joe'} -DelimiterLeft '[[' -DelimiterRight ']]'
+
+Hi Joe, {{keepThisUntouched}}!
 ~~~
 
 Interpolation with nested hashtables
