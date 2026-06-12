@@ -8,7 +8,7 @@
 RootModule = 'PSMustache.psm1'
 
 # Version number of this module.
-ModuleVersion = '1.3.2'
+ModuleVersion = '1.4.0'
 
 # Supported PSEditions
 CompatiblePSEditions = @('Desktop','Core')
@@ -20,7 +20,7 @@ GUID = '3abbeb5e-4f15-4096-804c-838473285516'
 Author = 'Sascha Plumhoff'
 
 # Copyright statement for this module
-Copyright = '2022 Sascha Plumhoff'
+Copyright = '2026 Sascha Plumhoff'
 
 # Description of the functionality provided by this module
 Description = 'PSMustache is an implementation of the Mustache template system purely in PowerShell without any external dependencies.'
@@ -32,10 +32,10 @@ PowerShellVersion = '5.1'
 # TypesToProcess = @()
 
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
-#FunctionsToExport = @('ConvertFrom-MustacheTemplate')
+FunctionsToExport = @('ConvertFrom-MustacheTemplate', 'Get-MustacheTemplate')
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
-CmdletsToExport = @('ConvertFrom-MustacheTemplate', 'Get-MustacheTemplate')
+#CmdletsToExport = @()
 
 # List of all modules packaged with this module
 # ModuleList = @()

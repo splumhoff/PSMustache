@@ -22,7 +22,7 @@ Describe "Mustache Tests from GIT" {
     Context "<Name> (as PSObject)" -Foreach $areas {
         $tests = @()
         foreach ($curTest in (Get-Content $_.FileName | ConvertFrom-Json).tests) {
-            if ($null -ne $curTest.data.lambda) {
+            if (!($curTest.data -is [System.Array]) -and ($null -ne $curTest.data.lambda)) {
                 $curTest.data.lambda = [scriptblock]::Create($curTest.data.lambda.pwsh)
             }
             $tests += @{
@@ -44,7 +44,7 @@ Describe "Mustache Tests from GIT" {
         Context "<Name> (as HashTable)" -Foreach $areas {
             $tests = @()
             foreach ($curTest in (Get-Content $_.FileName | ConvertFrom-Json -AsHashtable).tests) {
-                if ($null -ne $curTest.data.lambda) {
+                if (!($curTest.data -is [System.Array]) -and ($null -ne $curTest.data.lambda)) {
                     $curTest.data.lambda = [scriptblock]::Create($curTest.data.lambda.pwsh)
                 }
                 $tests += @{
@@ -66,7 +66,7 @@ Describe "Mustache Tests from GIT" {
     Context "<Name> (as PSObject with cached Template and Values from Pipeline)" -Foreach $areas {
         $tests = @()
         foreach ($curTest in (Get-Content $_.FileName | ConvertFrom-Json).tests) {
-            if ($null -ne $curTest.data.lambda) {
+            if (!($curTest.data -is [System.Array]) -and ($null -ne $curTest.data.lambda)) {
                 $curTest.data.lambda = [scriptblock]::Create($curTest.data.lambda.pwsh)
             }
             $tests += @{
@@ -78,6 +78,10 @@ Describe "Mustache Tests from GIT" {
             }
         }
         It -Name "Test: <name>" -TestCases $tests {
+            if ($_.Values -is [array]) {
+                Set-ItResult -Skipped -Because 'Root-Level Arrays through Pipeline would be iterated'
+                return
+            }
             $template = $_.template
             $expected = $_.expected
             $cachedTemplate = Get-MustacheTemplate -template $template
@@ -94,7 +98,7 @@ Describe "PowerShell specific Tests" {
     Context "<Name> (as PSObject)" -Foreach $areas {
         $tests = @()
         foreach ($curTest in (Get-Content $_.FileName | ConvertFrom-Json).tests) {
-            if ($null -ne $curTest.data.lambda) {
+            if (!($curTest.data -is [System.Array]) -and ($null -ne $curTest.data.lambda)) {
                 $curTest.data.lambda = [scriptblock]::Create($curTest.data.lambda.pwsh)
             }
             $tests += @{
@@ -118,7 +122,7 @@ Describe "PowerShell specific Tests" {
         Context "<Name> (as HashTable)" -Foreach $areas {
             $tests = @()
             foreach ($curTest in (Get-Content $_.FileName | ConvertFrom-Json -AsHashtable).tests) {
-                if ($null -ne $curTest.data.lambda) {
+                if (!($curTest.data -is [System.Array]) -and ($null -ne $curTest.data.lambda)) {
                     $curTest.data.lambda = [scriptblock]::Create($curTest.data.lambda.pwsh)
                 }
                 $tests += @{
@@ -142,7 +146,7 @@ Describe "PowerShell specific Tests" {
     Context "<Name> (as PSObject with cached Template and Values from Pipeline)" -Foreach $areas {
         $tests = @()
         foreach ($curTest in (Get-Content $_.FileName | ConvertFrom-Json).tests) {
-            if ($null -ne $curTest.data.lambda) {
+            if (!($curTest.data -is [System.Array]) -and ($null -ne $curTest.data.lambda)) {
                 $curTest.data.lambda = [scriptblock]::Create($curTest.data.lambda.pwsh)
             }
             $tests += @{
@@ -160,6 +164,58 @@ Describe "PowerShell specific Tests" {
             $expected = $_.expected
             $cachedTemplate = Get-MustacheTemplate -template $template -DelimiterLeft $_.DelimiterLeft -DelimiterRight $_.DelimiterRight
             $_.Values | ConvertFrom-MustacheTemplate -Template $cachedTemplate -Partials $_.Partials | Should -Be $expected
+        }
+    }
+}
+
+Describe "Error Handling Tests" {
+    Context "ConvertFrom-MustacheTemplate produces Write-Error for invalid lambda" {
+        It "Should throw an exception via Write-Error when lambda is invalid and error action preference is Stop" {
+            $template = 'Hello {{name}}!'
+            $values = @{
+                name = { throw 'Intentional lambda error' }
+            }
+            { ConvertFrom-MustacheTemplate -Template $template -Values $values -ErrorAction Stop } | Should -throw
+        }
+        
+        It "Should continue when lambda is invalid and error action preference is SilentlyContinue" {
+            $template = 'Hello {{name}}!'
+            $values = @{
+                name = { throw 'Intentional lambda error' }
+            }
+            ConvertFrom-MustacheTemplate -Template $template -Values $values -ErrorAction SilentlyContinue  | Should -Be 'Hello ERROR!'
+        }
+    }
+
+    Context "ConvertFrom-MustacheTemplate parameter validation" {
+        It "Should throw when template is null" {
+            { ConvertFrom-MustacheTemplate -template $null -Values @{} } | Should -Throw
+        }
+
+        It "Should throw when template is empty string" {
+            { ConvertFrom-MustacheTemplate -template '' -Values @{} } | Should -Throw
+        }
+
+        It "Should throw when Values is null" {
+            { ConvertFrom-MustacheTemplate -template 'hello' -Values $null } | Should -Throw
+        }
+    }
+
+    Context "ConvertFrom-MustacheTemplate pipeline input error handling" {
+        It "Should handle pipeline input with valid data without error" {
+            @{ name = 'World' } | ConvertFrom-MustacheTemplate -template 'Hello {{name}}!' | Should -Be 'Hello World!'
+        }
+
+        It "Should handle pipeline input with array values correctly" {
+            $values = @(
+                @{ name = 'Alice' },
+                @{ name = 'Bob' }
+            )
+            $template = '{{#names}}{{name}}{{/names}}'
+            $arrayValues = @{
+                names = $values
+            }
+            $arrayValues | ConvertFrom-MustacheTemplate -template $template | Should -Be 'AliceBob'
         }
     }
 }

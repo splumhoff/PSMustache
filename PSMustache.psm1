@@ -204,9 +204,12 @@ class PSMustache {
         $valueName = $currentTag.Content.Trim()  # Remove Whitespaces from variable name
 
         if ($valueName -eq '.') {
-            # Return directly if dotted names
+            # Return directly if implicit operator
             if ($valueStack.Count -gt 1) {
                 return $valueStack[0]
+            } elseif ($null -ne $valueStack.rootArray) {
+                # Edge-Case: Root-Level List with implicit operator
+                return $valueStack.rootArray
             }
             return $valueStack
         }
@@ -233,6 +236,7 @@ class PSMustache {
                         }
                     }
                     catch {
+                        Write-Error "Error while executing Mustache lambda '$($curValue)': $($_.Exception.Message)"
                         return "ERROR";
                     }
                 }
@@ -656,7 +660,10 @@ function ConvertFrom-MustacheTemplate {
         }
     }
     process {
-
+        if ($Values -is [array]) {
+            # Edgecase: Root-Level List
+            $Values = @{rootArray = $Values}
+        }
         return [PSMustache]::RenderTemplate($parseTree, $Values, $Partials)
     }
 }

@@ -1,7 +1,7 @@
 # PSMustache
 
 PSMustache is an implementation of the [Mustache](https://mustache.github.io/) template system purely in PowerShell without any external dependencies. It requires at least PowerShell 5.1 and runs great in later Versions.
-PSMustache currently passes all Spec-Tests up to the current [Mustache-Spec-Release](https://github.com/mustache/spec), except the Parent-Tags.
+PSMustache passes Spec-Tests up to v1.4.3 [Mustache-Spec-Release](https://github.com/mustache/spec), except the Parent-Tags.
 
 In Reference to [mustache.js](https://github.com/janl/mustache.js):
 
