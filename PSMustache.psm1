@@ -81,7 +81,7 @@ class PSMustache {
         $retValue = ''
 
         switch ($Leaf.Type) {
-            Text { 
+            Text {
                 $retValue = $Leaf.Content
                 break
             }
@@ -94,7 +94,7 @@ class PSMustache {
             }
             SectionStart {
                 $sectionValue = [PSMustache]::GetValue($Leaf, $ValueStack)
-                
+
                 if ($sectionValue -is [MustacheTag]) {
                     $retValue += [PSMustache]::RenderTemplate($sectionValue, $valueStack, $null)
                     break
@@ -137,10 +137,10 @@ class PSMustache {
                         }
                         else {
                             $retValue += [PSMustache]::RenderTemplate($curChild, @($curVar) + $ValueStack, $partials)
-                        } 
+                        }
                     }
                 }
-                break                
+                break
             }
             InvertedStart {
                 $sectionValue = [PSMustache]::GetValue($Leaf, $ValueStack)
@@ -166,7 +166,7 @@ class PSMustache {
                         }
                         else {
                             $retValue += [PSMustache]::RenderTemplate($curChild, @($sectionValue) + $ValueStack, $partials)
-                        } 
+                        }
                     }
                 }
                 break
@@ -487,7 +487,7 @@ class PSMustache {
                             DelimiterLeft = $delimiterLeft
                             DelimiterRight = $delimiterRight
                         }
-                        if ($isWhiteSpaceLine -and $previousContentInLine -match "(\s+)") { 
+                        if ($isWhiteSpaceLine -and $previousContentInLine -match "(\s+)") {
                             # Check if we have intended before the partial tag
                             $newPartial.Childs += [MustacheTag]@{
                                 Parent  = $newPartial
@@ -535,57 +535,63 @@ class PSMustache {
 }
 <#
 .SYNOPSIS
-Parses a Mustache-Template, renders it with the given values and returns the result 
+Parses a Mustache-Template, renders it with the given values and returns the result
 
 .DESCRIPTION
-PSMustache supports all mustache Tags excepts lambas.
-Please refer to the official mustache documentation for more examples and details regarding the syntax.
+PSMustache supports all required Mustache tags including lambdas.
+Please refer to the official Mustache documentation for more examples and details regarding the syntax.
 
 Tag Reference in short:
-- Interpolations: {{firstname}} is replaced by a value with name 'firstname'
-- Sections: {{#persons}}Hi {{firstname}}! {{/persons}} is looped vor every member of the array 'persons'
-- Inverteds: {{^persons}}No persons here.{{/persons}} is only rendered when a value with the name 'persons' does not exists or is empty
-- Comments: {{! This is a comment }} will be removed
-- Partials: {{> mypartial }} is replaced with the content of a partial with the name 'mypartial'
-- Delimiters: {{=<% %>=}} set new delimiters which are used beyond that tag.
+- Interpolations: `{{firstname}}` is replaced by a value with name 'firstname'
+- Sections: `{{#persons}}Hi {{firstname}}! {{/persons}}` is looped for every member of the array 'persons'
+- Inverted Sections: `{{^persons}}No persons here.{{/persons}}` is only rendered when a value with the name 'persons' does not exist or is empty
+- Comments: `{{! This is a comment }}` will be removed
+- Partials: `{{> mypartial }}` is replaced with the content of a partial with the name 'mypartial'
+- Delimiters: `{{=<% %>=}}` sets new delimiters which are used beyond that tag.
 
 Details of the processing:
-- Whitespaces in the tags are mostly ignored so {{ # persons    }} and {{#persons}} are equal.
-- All Tags except interpolation are completely removed when placed in a standalone line with only whitespaces.
-- When partials are intended, the intentation is applied to each linebreak in the partial to preserve the intentation.
-- {{.}} Can be used as a shortcut for the current element in a section
-- All content is HTML-Encoded, when not excluded by triple Delimiter {{{rawContent}}} or the ampersand {{& rawContent}}
-- If the delimiters are changed to a two length variant with identical chars, the Unescape-Delimiter will also be changed
-  e.g. {{=[[ ]]=}} changes the delimiters to [[content]] and [[[rawContent]]] for unescaped Content
+- Whitespace in the tags is mostly ignored, so `{{ # persons    }}` and `{{#persons}}` are equal.
+- All tags except interpolation are completely removed when placed on a standalone line with only whitespace.
+- When partials are indented, the indentation is applied to each line break in the partial to preserve it.
+- `{{.}}` can be used as a shortcut for the current element in a section.
+- All content is HTML-encoded unless excluded by triple delimiters `{{{rawContent}}}` or the ampersand `{{& rawContent}}`.
+- If the delimiters are changed to a two-character variant with identical characters, the unescape delimiter will also be changed.
+  e.g., `{{=[[ ]]=}}` changes the delimiters to `[[content]]` and `[[[rawContent]]]` for unescaped content.
 
 .PARAMETER Template
-A Mustache Template as string or a already processed template from Get-MustacheTemplate
+A Mustache template as a string, or an already processed template object from `Get-MustacheTemplate`.
 
 .PARAMETER Values
-All values which shall be used while rendering the template.
-Values should be defined as hashtables and can include nested elements e.g.
+All values to be used while rendering the template.
+Values should be defined as hashtables and can include nested elements, e.g.:
+```powershell
 @{
     'Name' = 'Joe',
     'Repos' = @('Repo1', 'Repo2', 'Repo3')
 }
+```
 
 .PARAMETER Partials
-Partials should be defined as hashtable, e.g. @{'myPartial' = 'Hi {{name}}'}
+Partials to be used while rendering the template, defined as a hashtable, e.g.:
+```powershell
+@{'myPartial' = 'Hi {{name}}'}
+```
 
 .PARAMETER DelimiterLeft
-Custom Start-Delimiter which shall be used for processing
-When DelimiterLeft is defined, DelimiterRight is also mandatory!
+Custom start delimiter to be used for processing.
+When `DelimiterLeft` is defined, `DelimiterRight` is also mandatory.
 
 .PARAMETER DelimiterRight
-Custom End-Delimiter which shall be used for processing
-When DelimiterRight is defined, DelimiterLeft is also mandatory!
+Custom end delimiter to be used for processing.
+When `DelimiterRight` is defined, `DelimiterLeft` is also mandatory.
 
 .EXAMPLE
 PS> # Very Basic Interpolation:
 PS> ConvertFrom-MustacheTemplate -Template 'Hi {{Name}}!' -Values @{Name='Joe'}
 Hi Joe!
+
 .EXAMPLE
-PS> # Define Sections Template:
+PS> # Define a Sections Template:
 PS> $template = @'
 >> My Repos:
 >> {{#repos}}
@@ -593,7 +599,7 @@ PS> $template = @'
 >> {{/repos}}
 >> '@
 
-PS> # Define Values: 
+PS> # Define Values:
 PS> $values = @{Repos = @('PSMustache', 'AnotherRepo', 'Third Repo')}
 
 PS> # Invoke with values
@@ -606,9 +612,10 @@ My Repos:
 PS> # Invoke without values
 PS> ConvertFrom-MustacheTemplate -Template $template
 My Repos:
+
 .EXAMPLE
-PS> # Define Sections with second inverted Section.
-PS> # The inverted section is only evaluated when repos is empty or not found
+PS> # Define a section with an inverted section.
+PS> # The inverted section is only evaluated when 'repos' is empty or not found
 PS> $template = @'
 >> My Repos:
 >> {{#repos}}
@@ -618,6 +625,11 @@ PS> $template = @'
 >>  - No Repos. :-(
 >> {{/repos}}
 >> '@
+
+# Invoke without values
+PS> ConvertFrom-MustacheTemplate -Template $template
+My Repos:
+ - No Repos. :-(
 
 # Invoke without values
 PS> ConvertFrom-MustacheTemplate -Template $template -
@@ -669,27 +681,40 @@ function ConvertFrom-MustacheTemplate {
 }
 <#
 .SYNOPSIS
-Parses a Template and returns the Template Object
+Parses a Mustache template and returns a reusable template object.
 
 .DESCRIPTION
-Parses a Template to use it multiple times with ConvertFrom-MustacheTemplate.
-Most processing time is used to parse the template, to it makes sense when the template is used multiple times.
+Parses a Mustache template so it can be rendered multiple times with `ConvertFrom-MustacheTemplate`.
+Parsing is the most time-consuming part of template processing, so pre-parsing is beneficial
+when the same template is used with different values.
 
 .PARAMETER Template
-A Mustache Template as string
+A Mustache template as a string.
 
 .PARAMETER DelimiterLeft
-Custom Start-Delimiter which shall be used for processing
-When DelimiterLeft is defined, DelimiterRight is also mandatory!
+Custom start delimiter to be used for processing.
+When `DelimiterLeft` is defined, `DelimiterRight` is also mandatory.
 
 .PARAMETER DelimiterRight
-Custom End-Delimiter which shall be used for processing
-When DelimiterRight is defined, DelimiterLeft is also mandatory!
+Custom end delimiter to be used for processing.
+When `DelimiterRight` is defined, `DelimiterLeft` is also mandatory.
+
+.OUTPUTS
+MustacheTag
+A parsed template object that can be passed to `ConvertFrom-MustacheTemplate`.
 
 .EXAMPLE
 $template = Get-MustacheTemplate $myTemplate
-$valueCollecton | ConvertFrom-MustacheTemplate -Template $template
+$valueCollection | ForEach-Object { ConvertFrom-MustacheTemplate -Template $template -Values $_ }
 
+Pre-parses a template and renders it for each value in a collection.
+
+.EXAMPLE
+$template = Get-MustacheTemplate '{{Greeting}}, {{Name}}!'
+ConvertFrom-MustacheTemplate -Template $template -Values @{Greeting='Hello'; Name='World'}
+Hello, World!
+
+Demonstrates pre-parsing a template and rendering it with specific values.
 #>
 function Get-MustacheTemplate {
     [CmdletBinding(DefaultParameterSetName = 'Default')]

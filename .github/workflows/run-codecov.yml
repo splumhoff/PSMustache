@@ -1,4 +1,4 @@
-name: Pester
+name: Codecov Upload
 on:
   workflow_dispatch:
   push:
@@ -23,6 +23,6 @@ jobs:
         Invoke-Pester -Configuration $config
       shell: pwsh
     - name: Upload coverage reports to Codecov
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v5
       env:
         CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

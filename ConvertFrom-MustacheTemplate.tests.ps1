@@ -1,3 +1,7 @@
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', 'oldCulture', Justification = 'Test setup/teardown')]
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', 'oldUICulture', Justification = 'Test setup/teardown')]
+param()
+
 BeforeAll {
     Import-Module .\PSMustache.psd1
 
@@ -177,7 +181,7 @@ Describe "Error Handling Tests" {
             }
             { ConvertFrom-MustacheTemplate -Template $template -Values $values -ErrorAction Stop } | Should -throw
         }
-        
+
         It "Should continue when lambda is invalid and error action preference is SilentlyContinue" {
             $template = 'Hello {{name}}!'
             $values = @{

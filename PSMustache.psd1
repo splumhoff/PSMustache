@@ -52,7 +52,7 @@ PrivateData = @{
         Tags = 'PowerShell', 'Template', 'Mustache', 'PSEdition_Core', 'PSEdition_Desktop', 'Windows', 'Linux', 'MacOS'
 
         # A URL to the license for this module.
-        LicenseUri = 'https://github.com/splumhoff/PSMustache/blob/main/LICENSE'
+        LicenseUri = 'https://github.com/splumhoff/PSMustache/blob/main/LICENSE.md'
 
         # A URL to the main website for this project.
         ProjectUri = 'https://github.com/splumhoff/PSMustache'

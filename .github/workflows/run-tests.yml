@@ -1,6 +1,4 @@
-# From https://www.robstr.dev/using-github-actions-run-automatic-pester-tests/
-# Thanks alot!
-name: Pester
+name: Code Tests
 on:
   workflow_dispatch:
   push:
@@ -16,6 +14,21 @@ jobs:
     - uses: actions/checkout@v6
       with:
         submodules: true
+    - name: Test module manifest
+      run: |
+        if (-not (Test-ModuleManifest -Path 'PSMustache.psd1')) {
+          Write-Error 'Test-ModuleManifest failed'
+          exit 1
+        }
+      shell: pwsh
+
+    - name: Install and run PSScriptAnalyzer
+      run: |
+        Install-Module -Name PSScriptAnalyzer -Force -Confirm:$false
+        $issues = Invoke-ScriptAnalyzer -Path . -Recurse
+        if ($issues) { $issues | Format-Table; exit 1 }
+      shell: pwsh
+
     - name: Run Pester tests (PS Core)
       run: |
         Write-host $PSVersionTable.PSVersion.Major $PSVersionTable.PSRemotingProtocolVersion.Minor

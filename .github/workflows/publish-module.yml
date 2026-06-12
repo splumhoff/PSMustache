@@ -18,7 +18,7 @@ jobs:
           $publishFiles =  @(
               'PSMustache.psd1',
               'PSMustache.psm1',
-              'LICENSE'
+              'LICENSE.md'
           ) | ForEach-Object { Join-Path ${{ github.workspace }} $_ }
 
           # Clear output Directory
