@@ -21,6 +21,7 @@ Describe "Mustache Tests from GIT" {
         @{Name = "Partials";        FileName = Join-Path $PSScriptRoot '.\spec\specs\partials.json'}
         @{Name = "Delimiters";      FileName = Join-Path $PSScriptRoot '.\spec\specs\delimiters.json'}
         @{Name = "Lambdas";         FileName = Join-Path $PSScriptRoot '.\spec\specs\~lambdas.json'}
+        @{Name = "DynamicNames";    FileName = Join-Path $PSScriptRoot '.\spec\specs\~dynamic-names.json'}
     )
 
     Context "<Name> (as PSObject)" -Foreach $areas {

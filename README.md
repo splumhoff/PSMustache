@@ -199,6 +199,19 @@ With this example, each `item` partial is rendered for the current item context 
 
 Standalone partials also preserve indentation when the partial content spans multiple lines.
 
+### Dynamic Partials
+Dynamic partials let you choose which partial to include at runtime using a value from the current context. Use the `{{>*partialName}}` syntax, where the value of `partialName` resolves to the name of the partial in the `-Partials` hashtable.
+
+~~~PowerShell
+PS> $template = 'Message: {{>*partialName}}'
+PS> $values = @{partialName = 'myPartial'; Name = 'World'}
+PS> $partials = @{myPartial = 'Hello {{Name}}!'}
+PS> ConvertFrom-MustacheTemplate -Template $template -Values $values -Partials $partials
+Message: Hello World!
+~~~
+
+This is useful for templates that need to select a partial dynamically based on values or application state.
+
 ### Custom Delimiters
 You can change delimiters when your content uses `{{`/`}}`. Example shown above; set `-DelimiterLeft` and `-DelimiterRight` together.
 

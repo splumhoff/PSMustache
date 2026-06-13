@@ -6,6 +6,7 @@ enum MustacheTagType {
     Interpolation
     Delimiter
     Partial
+    PartialDynamic
     SectionStart
     SectionEnd
     InvertedStart
@@ -70,10 +71,18 @@ class PSMustache {
     static [string]$DelimiterLeftUnescapeDefault = '{'
     static [string]$DelimiterRightUnescapeDefault = '}'
 
-    static [string]$regexTag = "\s*(?<Operator>[!>=#&^/])?\s*(?<TagContent>.+)"
+    static [string]$regexTag = "\s*(?<Operator>(?:(?<isDynamicPartial>>\s*\*)|[!>=#&^/]))?\s*(?<TagContent>.+)"
     <#
-        \s*                         # Whitespaces before Operator
-        (?<Operator>[!>=#&^/])?     # Operator of Tag, if any
+        \s*                             # Whitespaces before Operator
+        (?<Operator>                    # Operator of Tag, if any
+            (?:                         # Non-Capturing Group for Operator
+                (?<isDynamicPartial>    # Capture Dynamic Partial Operator, if it is a dynamic partial
+                    >\s*\*              # Dynamic Partial Operator: '>' followed by optional whitespace and '*'
+                )
+                |                       # OR
+                [!>=#&^/]               # Regular Operators: '!', '>', '=', '#', '&', '^', '/'
+            )
+        )?     
         \s*                         # Whitespaces after Operator
         (?<TagContent>.+)           # Tag-Content, normally Tag-Name (except comment-Tags)
     #>
@@ -171,8 +180,15 @@ class PSMustache {
                 }
                 break
             }
-            Partial {
-                $partial = $partials.($Leaf.Content.Trim())
+            {$_ -in [MustacheTagType]::Partial, [MustacheTagType]::PartialDynamic} {
+                if ($Leaf.Type -eq [MustacheTagType]::PartialDynamic) {
+                    # Get partial name from value stack for dynamic partials
+                    $partialName = [PSMustache]::GetValue($Leaf, $ValueStack)
+                }
+                else {
+                    $partialName = $Leaf.Content.Trim()
+                }
+                $partial = $partials.($partialName)
                 if (-not [string]::IsNullOrEmpty($partial)) {
                     if ($leaf.Childs.Length -gt 0) {
                         # Append intentation to every newline except the last one when ending with a newline
@@ -303,6 +319,7 @@ class PSMustache {
 
             $tagContent -match [PSMustache]::regexTag | Out-Null
             $tagContentMatch = $Matches
+
             if (($null -eq $tagContentMatch['Operator']) -or ($tagContentMatch['Operator'] -eq '&')) {
                 ## Interpolation
 
@@ -476,11 +493,16 @@ class PSMustache {
                         $rootParent = $rootParent.Parent
                         break
                     }
-                    '>' {
+                    {($_ -eq '>') -or ($null -ne $tagContentMatch['isDynamicPartial']) } {
+                        if ($_ -eq '>') {
+                            $partialType = [MustacheTagType]::Partial
+                        } else {
+                            $partialType = [MustacheTagType]::PartialDynamic
+                        }
                         # Partials
                         $newPartial = [MustacheTag]@{
                             Parent      = $rootParent
-                            Type        = [MustacheTagType]::Partial
+                            Type        = $partialType
                             Content     = $tagContentMatch['TagContent']
                             TagStartPos = $openTagPosition
                             TagEndPos   = $closeTagPosition + $delimiterRight.Length
@@ -547,6 +569,7 @@ Tag Reference in short:
 - Inverted Sections: `{{^persons}}No persons here.{{/persons}}` is only rendered when a value with the name 'persons' does not exist or is empty
 - Comments: `{{! This is a comment }}` will be removed
 - Partials: `{{> mypartial }}` is replaced with the content of a partial with the name 'mypartial'
+- Dynamic Partials: `{{>*partialName}}` uses the value from the current context as the partial name to include
 - Delimiters: `{{=<% %>=}}` sets new delimiters which are used beyond that tag.
 
 Details of the processing:
@@ -612,6 +635,14 @@ My Repos:
 PS> # Invoke without values
 PS> ConvertFrom-MustacheTemplate -Template $template
 My Repos:
+
+.EXAMPLE
+PS> # Use a dynamic partial name from the current context.
+PS> $template = 'Message: {{>*partialName}}'
+> $values = @{partialName = 'myPartial'; Name = 'World'}
+> $partials = @{myPartial = 'Hello {{Name}}!'}
+PS> ConvertFrom-MustacheTemplate -Template $template -Values $values -Partials $partials
+Message: Hello World!
 
 .EXAMPLE
 PS> # Define a section with an inverted section.
