@@ -82,7 +82,7 @@ class PSMustache {
                 |                       # OR
                 [!>=#&^/]               # Regular Operators: '!', '>', '=', '#', '&', '^', '/'
             )
-        )?     
+        )?
         \s*                         # Whitespaces after Operator
         (?<TagContent>.+)           # Tag-Content, normally Tag-Name (except comment-Tags)
     #>
